@@ -207,9 +207,13 @@ public class ReentrantLock implements Lock, java.io.Serializable {
          * acquire on failure.
          */
         final void lock() {
+            // 线程请求锁时，1通过所得状态state，如果state为0，通过CAS尝试获取锁，如果获取，直接返回
+            // 所谓不公平，就是说先抢占到（把状态0改为1），然后再尝试排队。0表示为占用，1表示已占用，
+            // 大于1表示同一个线程，多次请求锁，也就是可重入锁的实现原理
             if (compareAndSetState(0, 1))
                 setExclusiveOwnerThread(Thread.currentThread());
             else
+                // 如果当前锁被占用，则尝试申请锁
                 acquire(1);
         }
 
