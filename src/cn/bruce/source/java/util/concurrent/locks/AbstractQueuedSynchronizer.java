@@ -1200,7 +1200,9 @@ public abstract class AbstractQueuedSynchronizer
      *        can represent anything you like.
      */
     public final void acquire(int arg) {
+        // 如果tryAcquire(arg)返回true，则不会执行acquireQueued方法
         if (!tryAcquire(arg) &&
+                // 如果tryAcquired(arg)返回false，说明没有成功获取锁，则加入请求队列中
             acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
             selfInterrupt();
     }
