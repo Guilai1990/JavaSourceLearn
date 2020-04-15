@@ -169,6 +169,7 @@ public class IdentityHashMap<K,V>
     /**
      * The table, resized as necessary. Length MUST always be a power of two.
      */
+    // 储存键值对的数组
     transient Object[] table; // non-private to simplify nested class access
 
     /**
@@ -191,6 +192,7 @@ public class IdentityHashMap<K,V>
     /**
      * Use NULL_KEY for key if it is null.
      */
+    // 如果key为null，使用NULL_KEY来代替
     private static Object maskNull(Object key) {
         return (key == null ? NULL_KEY : key);
     }
@@ -250,7 +252,7 @@ public class IdentityHashMap<K,V>
         // assert (initCapacity & -initCapacity) == initCapacity; // power of 2
         // assert initCapacity >= MINIMUM_CAPACITY;
         // assert initCapacity <= MAXIMUM_CAPACITY;
-
+        // 因为键值存储在同一个数组中，所有数组大小为初始容量的2倍
         table = new Object[2 * initCapacity];
     }
 
@@ -291,14 +293,18 @@ public class IdentityHashMap<K,V>
      * Returns index for Object x.
      */
     private static int hash(Object x, int length) {
+        // 使用System.identityHashCode(x)计算hash值
         int h = System.identityHashCode(x);
         // Multiply by -127, and left-shift to use least bit as part of hash
+        // 扰动，并且该表达式保证了元素的散列值是偶数
         return ((h << 1) - (h << 8)) & (length - 1);
     }
 
     /**
      * Circularly traverses table of size len.
      */
+    // hash冲突解决方式：线性探测法（linear-probe）；因为key后面立马是value，这里线性探测每次递增2
+    // 此处实现了循环探测
     private static int nextKeyIndex(int i, int len) {
         return (i + 2 < len ? i + 2 : 0);
     }
@@ -329,9 +335,11 @@ public class IdentityHashMap<K,V>
         while (true) {
             Object item = tab[i];
             if (item == k)
+                // 如果第i个位置存储为key，第i+1位置则存储为对应的value
                 return (V) tab[i + 1];
             if (item == null)
                 return null;
+            // 线性探测
             i = nextKeyIndex(i, len);
         }
     }
@@ -372,6 +380,7 @@ public class IdentityHashMap<K,V>
     public boolean containsValue(Object value) {
         Object[] tab = table;
         for (int i = 1; i < tab.length; i += 2)
+            // value使用“==”判断相等
             if (tab[i] == value && tab[i - 1] != null)
                 return true;
 
@@ -417,6 +426,7 @@ public class IdentityHashMap<K,V>
      * @see     #containsKey(Object)
      */
     public V put(K key, V value) {
+        // 此处必须为null提供mask，因为在进行遍历，get()等操作时，如果遇到key为null，则认为该位置没有键值对
         final Object k = maskNull(key);
 
         retryAfterResize: for (;;) {
@@ -424,8 +434,10 @@ public class IdentityHashMap<K,V>
             final int len = tab.length;
             int i = hash(k, len);
 
+            // key为null，则认为该位置没有键值对
             for (Object item; (item = tab[i]) != null;
                  i = nextKeyIndex(i, len)) {
+                // 通过“==”判断key相同
                 if (item == k) {
                     @SuppressWarnings("unchecked")
                         V oldValue = (V) tab[i + 1];
@@ -441,6 +453,7 @@ public class IdentityHashMap<K,V>
                 continue retryAfterResize;
 
             modCount++;
+            // 如果第i个位置存储为key，第i+1位置则存储为对应的value
             tab[i] = k;
             tab[i + 1] = value;
             size = s;
@@ -456,6 +469,7 @@ public class IdentityHashMap<K,V>
      */
     private boolean resize(int newCapacity) {
         // assert (newCapacity & -newCapacity) == newCapacity; // power of 2
+        // 每次扩容为原来的两倍
         int newLength = newCapacity * 2;
 
         Object[] oldTable = table;
@@ -469,7 +483,7 @@ public class IdentityHashMap<K,V>
             return false;
 
         Object[] newTable = new Object[newLength];
-
+        // 对每个键值对重新进行散列到新数组中
         for (int j = 0; j < oldLength; j += 2) {
             Object key = oldTable[j];
             if (key != null) {
@@ -530,6 +544,8 @@ public class IdentityHashMap<K,V>
                     V oldValue = (V) tab[i + 1];
                 tab[i + 1] = null;
                 tab[i] = null;
+                // 第i个位置的键值对移除了，空出了位置，看后面是否有键值对要填补这个位置
+                // （有些键值对是因为线性探测导致其位置偏离了其hash值）
                 closeDeletion(i);
                 return oldValue;
             }
@@ -578,6 +594,8 @@ public class IdentityHashMap<K,V>
      *
      * @param d the index of a newly empty deleted slot
      */
+    // 指定位置的键值对移除了，空出了位置，看后面是否有键值对要填补这个位置
+    // 有些键值对因为线性探测导致其位置偏离了其hash值
     private void closeDeletion(int d) {
         // Adapted from Knuth Section 6.4 Algorithm R
         Object[] tab = table;
@@ -588,6 +606,9 @@ public class IdentityHashMap<K,V>
         // and continuing until a null slot is seen, indicating
         // the end of a run of possibly-colliding keys.
         Object item;
+        // d:空出来的键值对位置
+        // i:当前处理的键值对位置
+        // 直到key == null时才退出循环
         for (int i = nextKeyIndex(d, len); (item = tab[i]) != null;
              i = nextKeyIndex(i, len) ) {
             // The following test triggers if the item at slot i (which
